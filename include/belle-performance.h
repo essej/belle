@@ -151,6 +151,7 @@ Value GenerateNoteListFromSystem(Pointer<const Music> MusicSystem,
             }
           }
 
+          Note["Onset"] = Onset.To<number>();
           Note["Start"] = Onset.To<number>() / WholeNotesPerSecond;
           Note["Moment"] = Moment;
           Note["MomentDuration"] =
