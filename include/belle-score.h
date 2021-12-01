@@ -37,6 +37,7 @@ namespace BELLE_NAMESPACE
   //Page of the score
   class Page : public Canvas
   {
+  protected:
     ///Systems to be painted on this page.
     List<Pointer<const Music> > Systems;
 
@@ -99,6 +100,8 @@ namespace BELLE_NAMESPACE
   class Score : public Portfolio
   {
     friend class Page;
+
+    protected:
 
     ///The font used for engraving.
     Font NotationFont;
