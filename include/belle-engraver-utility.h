@@ -143,7 +143,7 @@ namespace BELLE_NAMESPACE
     {
       /*Get the sequence of accidental positions for the combination of clef
       and accidental.*/
-      mica::Concept s = map(Clef, map(KeySignature, mica::Accidental));
+      mica::Concept s = mica::map(Clef, mica::map(KeySignature, mica::Accidental));
       return count(numerator(item(s, i)));
     }
   };
