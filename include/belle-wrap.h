@@ -42,6 +42,9 @@ Value WrapCreateBreak(count Instant, Music::ConstNode Island, number TypesetX);
 List<VectorInt> WrapDistributeMeasures(List<number> MeasureWidths,
   number FirstLineWidth, number RemainingLineWidths, number CostPower);
 count WrapFindInstantOfLastHeaderItem(Pointer<const Music> M);
+count WrapFindInstantOfLastHeaderItemBefore(Pointer<const Music> M, count BeforeIndex);
+count WrapFindInstantOfClefItemBefore(Pointer<const Music> M, count BeforeIndex);
+count WrapFindInstantOfKeySigItemBefore(Pointer<const Music> M, count BeforeIndex);
 Value WrapPotentialBreaks(Pointer<const Music> M);
 ///@}
 
@@ -65,11 +68,68 @@ List<Pointer<Music> > WrapBreakGraph(Pointer<const Music> M,
         PotentialBreaks[BreakLeft]["Instant"].AsCount();
       count SelectionLastItem =
         PotentialBreaks[BreakRight]["Instant"].AsCount();
+
+      // need to find most recent clef and key signature before selectionfirstitem, to copy into place
+      count ClefItem = WrapFindInstantOfClefItemBefore(M, SelectionFirstItem);
+      count KeySigItem = WrapFindInstantOfKeySigItemBefore(M, SelectionFirstItem);
+
       count HeaderLastItem = WrapFindInstantOfLastHeaderItem(M);
+      // count HeaderLastItem = WrapFindInstantOfLastHeaderItemBefore(M, SelectionFirstItem);
+      // C::Out() >> "HeaderLastItem: " << HeaderLastItem << "  clefitem: " << ClefItem << "  sigitem: " << KeySigItem
+      // << " for d: " << d << "  selfirst: " << SelectionFirstItem << " sellast: " << SelectionLastItem;
+
       WrapBreakTies(Copy, G, SelectionFirstItem, SelectionLastItem);
 
       if(count(d) > 0)
       {
+#if 1
+        //Partwise connect header to beginning of selection.
+        for(count i = 0; i < G->GetNumberOfParts(); i++)
+        {
+          Music::Node ClefNode = Copy->Promote(G->LookupIsland(i, ClefItem));
+          Music::Node KeySigNode = Copy->Promote(G->LookupIsland(i, KeySigItem));
+          Music::Node Right = Copy->Promote(G->LookupIsland(i, SelectionFirstItem));
+          Right = Right ? Right->Next(MusicLabel(mica::Partwise)) : Music::Node();
+
+          if (IsIsland(ClefNode) and IsIsland(KeySigNode) and IsIsland(Right)) {
+
+            if (IslandHasClef(Right)) {
+              // do not include past clef or key sig if the first item is a clef
+
+              Copy->Root(Right);
+              KeySigItem = -1;
+              ClefItem = -1;
+            }
+            else if (IslandHasKeySignature(Right)) {
+              // do not include past key signature if the first item is also a key sig
+              Copy->Root(ClefNode);
+              Copy->Connect(ClefNode, Right)->Set(mica::Type) = mica::Partwise;
+              KeySigItem = -1;
+            } else  {
+              Copy->Root(ClefNode);
+              if (abs(ClefItem - KeySigItem) > 1) {
+                Copy->Connect(ClefNode, KeySigNode)->Set(mica::Type) = mica::Partwise;
+              }
+              Copy->Connect(KeySigNode, Right)->Set(mica::Type) = mica::Partwise;
+            }
+          }
+          else if (IsIsland(ClefNode) and IsIsland(Right)) {
+            Copy->Root(ClefNode);
+            Copy->Connect(ClefNode, Right)->Set(mica::Type) = mica::Partwise;
+          }
+
+        }
+
+        //Remove items up to the selection.
+        for(count i = 0; i <= SelectionFirstItem; i++) {
+          if (i == ClefItem || i == KeySigItem) continue;
+
+          for(count j = 0; j < G->GetNumberOfParts(); j++) {
+            RemoveIsland(Copy, G->LookupIsland(j, i));
+          }
+        }
+
+#else
         //Partwise connect header to beginning of selection.
         for(count i = 0; i < G->GetNumberOfParts(); i++)
         {
@@ -87,8 +147,10 @@ List<Pointer<Music> > WrapBreakGraph(Pointer<const Music> M,
         for(count i = HeaderLastItem + 1; i <= SelectionFirstItem; i++)
           for(count j = 0; j < G->GetNumberOfParts(); j++)
             RemoveIsland(Copy, G->LookupIsland(j, i));
-      }
 
+#endif
+
+      }
       //Save the original instant ID and part ID in the wrapped section.
       for(count i = 0; i < G->GetNumberOfParts(); i++)
         for(count j = SelectionFirstItem; j <= SelectionLastItem; j++)
@@ -254,6 +316,84 @@ count WrapFindInstantOfLastHeaderItem(Pointer<const Music> M)
   }
   return LastHeaderItem;
 }
+
+count WrapFindInstantOfLastHeaderItemBefore(Pointer<const Music> M, count BeforeIndex)
+{
+  count LastHeaderItem = -1;
+  if(Pointer<const class Geometry> g = System::Geometry(M))
+  {
+    bool EndOfHeaderFound = false;
+    for(count i = 0; /*not EndOfHeaderFound and */ i < g->GetNumberOfInstants() and i < BeforeIndex; i++)
+    {
+      if(not g->IsInstantComplete(i))
+        EndOfHeaderFound = true;
+      else
+        for(count j = 0; j < g->GetNumberOfParts(); j++) {
+          if(Music::ConstNode x = g->LookupIsland(j, i)) {
+            if(not IslandHasBarline(x) and not IslandHasClef(x) and not
+               IslandHasKeySignature(x)) {
+              EndOfHeaderFound = true;
+            }
+            else if (IslandHasKeySignature(x)) {
+              EndOfHeaderFound = false;
+            }
+          }
+        }
+
+      if(not EndOfHeaderFound) LastHeaderItem = i;
+    }
+  }
+  return LastHeaderItem;
+}
+
+count WrapFindInstantOfClefItemBefore(Pointer<const Music> M, count BeforeIndex)
+{
+  count ClefItem = -1;
+  if(Pointer<const class Geometry> g = System::Geometry(M))
+  {
+    bool ClefFound = false;
+    for(count i = 0; /*not EndOfHeaderFound and */ i < g->GetNumberOfInstants() and i < BeforeIndex; i++)
+    {
+      if (g->IsInstantComplete(i)) {
+        for(count j = 0; j < g->GetNumberOfParts(); j++) {
+          if(Music::ConstNode x = g->LookupIsland(j, i)) {
+            if (IslandHasClef(x)) {
+              ClefItem = i;
+              ClefFound = true;
+            }
+          }
+        }
+
+      }
+
+    }
+  }
+  return ClefItem;
+}
+
+count WrapFindInstantOfKeySigItemBefore(Pointer<const Music> M, count BeforeIndex)
+{
+  count SigItem = -1;
+  if(Pointer<const class Geometry> g = System::Geometry(M))
+  {
+    bool SigFound = false;
+    for(count i = 0; /*not EndOfHeaderFound and */ i < g->GetNumberOfInstants() and i < BeforeIndex; i++)
+    {
+      if (g->IsInstantComplete(i)) {
+        for(count j = 0; j < g->GetNumberOfParts(); j++) {
+          if(Music::ConstNode x = g->LookupIsland(j, i)) {
+            if (IslandHasKeySignature(x)) {
+              SigItem = i;
+              SigFound = true;
+            }
+          }
+        }
+      }
+    }
+  }
+  return SigItem;
+}
+
 
 Value WrapPotentialBreaks(Pointer<const Music> M)
 {
