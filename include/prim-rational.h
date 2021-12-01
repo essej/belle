@@ -113,11 +113,12 @@ namespace PRIM_NAMESPACE
     }
 
     ///Creates a ratio from a numerator and denominator.
-    Rational(IntegralType Numerator, IntegralType Denominator)
+    Rational(IntegralType Numerator, IntegralType Denominator, bool DoSimplify=false)
     {
       n = Numerator;
       d = Denominator;
-      Simplify();
+      if (DoSimplify)
+        Simplify();
     }
 
     ///Creates a ratio from a coerced floating-point value.
