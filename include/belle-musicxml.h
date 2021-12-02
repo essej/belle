@@ -206,7 +206,7 @@ void MusicXMLCreateSpans(Music& G, Value& PartState)
             }
 
             // create unsimplified ratio to ensure numerator stays the way we want
-            Ratio lenratio(Numer, Denom, false);
+            Ratio lenratio(Numer, Denom);
 
             Music::Node TupletTag = G.Add();
             TupletTag->Set(mica::Type) = mica::Tuplet;
