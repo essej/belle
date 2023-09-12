@@ -36,7 +36,7 @@
 selected, then only those notes will be returned. This method assumes the
 system has already been engraved.*/
 Value GenerateNoteListFromSystem(Pointer<const Music> MusicSystem,
-  number QuartersPerMinute);
+  number QuartersPerMinute, bool IncludeRests);
 
 ///Resets the colors of all the islands back to a specific default color.
 void ResetIslandColors(Pointer<const Music> MusicSystem,
@@ -54,7 +54,7 @@ void SetColorOfStaff(Pointer<const Music> MusicSystem, count Part,
 #ifdef BELLE_IMPLEMENTATION
 
 Value GenerateNoteListFromSystem(Pointer<const Music> MusicSystem,
-  number QuartersPerMinute)
+  number QuartersPerMinute, bool IncludeRests)
 {
   Value NoteList;
   NoteList.NewArray();
@@ -94,30 +94,56 @@ Value GenerateNoteListFromSystem(Pointer<const Music> MusicSystem,
         Island->Previous(MusicLabel(mica::Partwise));
       bool IsFirstBeat = not IslandHasChords(PreviousIsland);
       Array<Music::ConstNode> Chords = ChordsOfIsland(Island);
+
       for(count i = 0; i < Chords.n(); i++)
       {
         bool IsBeginningBeamGroup = IsChordBeginningOfBeamGroup(Chords[i]);
         Array<Music::ConstNode> Notes = NotesOfChord(Chords[i]);
+        bool isrest = false;
+        if (IncludeRests && IsRest(Chords[i])) {
+          // jlc
+          Notes.Clear();
+
+          Notes.Add() = Chords[i];
+          isrest = true;
+        }
+
         for(count j = 0; j < Notes.n(); j++)
         {
           Music::ConstNode NoteNode = Notes[j];
           Ratio Duration = TiedDuration(NoteNode);
           mica::Concept Pitch = ActualPitchOfNote(NoteNode);
           mica::Concept NoteNumber = mica::map(Pitch, mica::MIDIKeyNumber);
-          if(undefined(NoteNumber) or Duration.IsEmpty() or Duration <= 0 or
+
+          if (isrest) {
+            Duration = RhythmicDurationOfChord(NoteNode);
+            C::Out() >> "Is rest: n: " << Moment << " onset: " << (double)Onset.To<number>() << " dur: " << (double) Duration.To<number>();
+          }
+          else {
+              C::Out() >> "Is NOT rest: n: " << Moment << " onset: " << (double)Onset.To<number>() << " dur: " << (double) Duration.To<number>();
+          }
+
+          if((undefined(NoteNumber) and !isrest) or Duration.IsEmpty() or Duration <= 0 or
             Onset.IsEmpty() or Onset < 0)
               continue;
 
           Value Note;
-          count MIDINoteNumber = count(mica::numerator(NoteNumber));
-          Note["Key"] = MIDINoteNumber;
           Note["Pitch"] = String(Pitch);
           Note["RhythmicDuration"] = Duration;
           Note["NotatedDuration"] = Duration.To<number>() / WholeNotesPerSecond;
+
+          if (!undefined(NoteNumber))
           {
+            count MIDINoteNumber = count(mica::numerator(NoteNumber));
+            Note["Key"] = MIDINoteNumber;
             count NoteCount = NoteCountByKey[MIDINoteNumber].AsCount();
             Note["Channel"] = (NoteCount % 4) + 1;
             NoteCountByKey[MIDINoteNumber] = NoteCount + 1;
+            Note["IsRest"] = false;
+          }
+          else {
+            // assume it is rest
+            Note["IsRest"] = true;
           }
           Note["BeamStart"] = IsBeginningBeamGroup;
           Note["Duration"] = Note["NotatedDuration"];

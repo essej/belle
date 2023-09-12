@@ -270,7 +270,8 @@ namespace BELLE_NAMESPACE
       StartPoint += LeftDelta;
       EndPoint += RightDelta;
       Path Slur;
-      number Arch = (PlaceBelow ? -0.15f : 0.15f) * 1.5f;
+      //number Arch = (PlaceBelow ? -0.15f : 0.15f) * 1.5f;
+      number Arch = (PlaceBelow ? -0.15f : 0.15f) * 1.0f;
       Shapes::Music::AddSlur(Slur, StartPoint, EndPoint, 1.f, Arch, 0.5f,
         0.3f, 0.1f);
 

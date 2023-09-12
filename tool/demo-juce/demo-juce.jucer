@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<JUCERPROJECT id="IuMRza" name="demo-juce" projectType="guiapp" jucerVersion="5.4.4">
+<JUCERPROJECT id="IuMRza" name="demo-juce" projectType="guiapp" jucerFormatVersion="1">
   <MAINGROUP id="Lu7RVq" name="demo-juce">
     <GROUP id="{3E6BFBD8-CBAF-3692-5232-38F1A180689C}" name="Source">
       <FILE id="yuLcz3" name="MusicPage.cpp" compile="1" resource="0" file="Source/MusicPage.cpp"/>

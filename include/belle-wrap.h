@@ -35,6 +35,8 @@ List<Pointer<Music> > WrapBreakGraph(Pointer<const Music> M,
   Value PotentialBreaks, List<VectorInt> Distribution);
 void WrapBreakTies(Pointer<Music> M, Pointer<const class Geometry> G,
   count FirstInstant, count LastInstant);
+void WrapBreakSlurs(Pointer<Music> M, Pointer<const class Geometry> G,
+  count FirstInstant, count LastInstant);
 List<number> WrapCalculateBreakWidths(Value PotentialBreaks);
 List<VectorInt> WrapCalculateOptimalBreaks(Value PotentialBreaks,
   number FirstLineWidth, number RemainingLineWidths, number CostPower);
@@ -210,6 +212,43 @@ void WrapBreakTies(Pointer<Music> M, Pointer<const class Geometry> G,
       }
     }
   }
+}
+
+void WrapBreakSlurs(Pointer<Music> M, Pointer<const class Geometry> G,
+  count FirstInstant, count LastInstant)
+{
+#if 0
+  Phrasing::EngraveSlurs(M);
+  for(count Part = 0; Part < G->GetNumberOfParts(); Part++)
+  {
+    for(count Instant = FirstInstant; Instant <= LastInstant; Instant++)
+    {
+      Music::ConstNode Island = G->LookupIsland(Part, Instant);
+      Array<Music::ConstNode> Chords = ChordsOfIsland(Island);
+      for(count c = 0; c < Chords.n(); c++)
+      {
+        Music::ConstNode Chord = Chords[c];
+
+        Music::ConstNode PreviousChord = Chord->Previous(MusicLabel(mica::Slur));
+
+        if(PreviousChord)
+        {
+          if(Music::ConstNode Previous = IslandOfChord(PreviousChord))
+            if(Previous->Label.GetState("InstantID").AsCount() < FirstInstant)
+              M->Promote(Chord)->Set(mica::Slur) = mica::Concept(Previous->GetState("IslandState")[PreviousChord]);
+        }
+
+        Music::ConstNode NextChord = Chord->Next(MusicLabel(mica::Slur));
+        if(NextChord)
+        {
+          if(Music::ConstNode Next =  IslandOfChord(NextChord))
+            if(Next->Label.GetState("InstantID").AsCount() > LastInstant)
+              M->Promote(Chord)->Set(mica::Slur) = mica::Concept(Island->GetState("IslandState")[Chord]);
+        }
+      }
+    }
+  }
+#endif
 }
 
 class WrapCostLabel : public GraphTLabel<String>

@@ -185,15 +185,39 @@ void MusicXMLCreateSpans(Music& G, Value& PartState)
           {
             if(Music::Edge e = G.Connect(LeftChord, RightChord))
               e->Set(mica::Type) = mica::Beam;
-          }
-          else if(SpanType == "tuplet" and LeftChord and RightChord)
-          {
 
+              C::Out() >> "Got beam";
+          }
+          else if(SpanType == "tuplet" && LeftChord and RightChord)
+          {
+              /*
+              if (LeftChord and RightChord) {
+                  C::Out() >> "Got tuplet both left and right";
+
+              } else if (LeftChord) {
+                  C::Out() >> "Got tuplet only left";
+                  if (RightNote) {
+                      C::Out() >> "  has right note";
+                  }
+              }
+              else if (RightChord) {
+                  C::Out() >> "Got tuplet only right";
+              }
+              else {
+                  C::Out() >> "Got tuplet no left or right";
+              }
+               */
+              
             count Numer = SpanElements[m]["start"]["numer"].AsCount();
             count Denom = SpanElements[m]["start"]["denom"].AsCount();
             String Tag = "1"; // ??
             //Pointer<Music> pg(&G);
             //AssumeTupletize(pg, LeftChord, RightChord, Ratio(Value), Tag );
+
+            // create unsimplified ratio to ensure numerator stays the way we want
+            Ratio lenratio(Numer, Denom);
+
+            C::Out() >> "Tuplet First: n: " << lenratio.Numerator() << "  d: " << lenratio.Denominator();
 
             Music::Node x = LeftChord;
             for(; x and x != RightChord; x = x->Next(MusicLabel(mica::Voice)))
@@ -203,10 +227,9 @@ void MusicXMLCreateSpans(Music& G, Value& PartState)
               G.Connect(x, NextChord)->Set(mica::Type) = mica::Tuplet;
               Music::Edge TupletEdge = x->Next(MusicLabel(mica::Tuplet), true);
               TupletEdge->Set("Tag") = Tag;
+              C::Out() >> "  Tuplet sub: n: " << lenratio.Numerator() << "  d: " << lenratio.Denominator();
             }
 
-            // create unsimplified ratio to ensure numerator stays the way we want
-            Ratio lenratio(Numer, Denom);
 
             Music::Node TupletTag = G.Add();
             TupletTag->Set(mica::Type) = mica::Tuplet;
@@ -696,19 +719,41 @@ Music::Node MusicXMLConstructChord(Music& G, const Value& Chord,
         Value& SpanInfo = SpanType[Numbers[m]];
         for(count k = 0; k < SpanInfo.n(); k++)
           if(SpanInfo[k]["start"]["element"].AsCount() == CurrentElementIndex
-            and SpanInfo[k]["start"]["pitch"].AsCount() == i and
-            SpanInfo[k]["start"]["measure"].AsCount() == CurrentMeasureIndex)
+            and SpanInfo[k]["start"]["pitch"].AsCount() == i
+            and SpanInfo[k]["start"]["measure"].AsCount() == CurrentMeasureIndex)
               SpanInfo[k]["start"]["chord"] = c,
               SpanInfo[k]["start"]["note"] = n;
         for(count k = 0; k < SpanInfo.n(); k++)
           if(SpanInfo[k]["stop"]["element"].AsCount() == CurrentElementIndex
-            and SpanInfo[k]["stop"]["pitch"].AsCount() == i and
-            SpanInfo[k]["stop"]["measure"].AsCount() == CurrentMeasureIndex)
+            and SpanInfo[k]["stop"]["pitch"].AsCount() == i
+            and SpanInfo[k]["stop"]["measure"].AsCount() == CurrentMeasureIndex)
               SpanInfo[k]["stop"]["chord"] = c,
               SpanInfo[k]["stop"]["note"] = n;
       }
     }
   }
+    // rest might be in a span
+    if (Chord["pitches"].n() == 0) {
+        
+        for(count j = 0; j < VoiceSpanTypes.n(); j++)
+        {
+          Value& SpanType = VoiceSpans[VoiceSpanTypes[j]][Chord["voice"]];
+          Value Numbers = SpanType.Keys();
+          for(count m = 0; m < Numbers.n(); m++)
+          {
+            Value& SpanInfo = SpanType[Numbers[m]];
+            for(count k = 0; k < SpanInfo.n(); k++)
+              if(SpanInfo[k]["start"]["element"].AsCount() == CurrentElementIndex
+                and SpanInfo[k]["start"]["measure"].AsCount() == CurrentMeasureIndex)
+                  SpanInfo[k]["start"]["chord"] = c;
+            for(count k = 0; k < SpanInfo.n(); k++)
+              if(SpanInfo[k]["stop"]["element"].AsCount() == CurrentElementIndex
+                and SpanInfo[k]["stop"]["measure"].AsCount() == CurrentMeasureIndex)
+                  SpanInfo[k]["stop"]["chord"] = c;
+          }
+        }
+    }
+
   return c;
 }
 
@@ -906,10 +951,10 @@ Value MusicXMLParseNote(const Value& Element, Value& PartState)
         else if(tt == "tuplet" and not IsChordNote and not AlreadySawTuplet)
         {
           // force number to 1 ?
-          nu = "1";
+          //nu = "1";
           //if(nu == "1")
           {
-            AlreadySawTuplet = true;
+            //AlreadySawTuplet = true;
 
             // get from prior time-modification info
             Value Actual = NoteInfo["actual-notes"];
@@ -935,19 +980,25 @@ Value MusicXMLParseNote(const Value& Element, Value& PartState)
               valstr = Actual.AsString() + "/" + Normal.AsString();
             }
 
+            // jlc
+
             if(ty == "start")
             {
               String bracket = Element[i][j]["bracket"].AsString();
 
-              if (not SpanInfo["placement"] || bracket != "yes")
+              if (not SpanInfo["placement"] && bracket != "yes")
                 SpanInfo["placement"] = mica::Beam;
               SpanInfo["numer"] = Actual;
               SpanInfo["denom"] = Normal;
               VoiceSpans[nu].Add()["start"] = SpanInfo;
               PartState["must-close-tuplet"] = true;
+
+              C::Out() >> "Tuplet Start: " << valstr << " i: " << i << " j: " << j << " num: " << nu << " bracket: " << bracket;
             }
             else
             {
+              C::Out() >> "Tuplet Stop: " << valstr << " i: " << i << " j: " << j << " num: " << nu;
+
               VoiceSpans[nu].z()["stop"] = SpanInfo;
               PartState["must-close-tuplet"] = false;
             }
@@ -1017,17 +1068,21 @@ Value MusicXMLParseNote(const Value& Element, Value& PartState)
         {
           VoiceSpans[Number].Add()["start"] = SpanInfo;
           PartState["must-close-beam"] = true;
+            C::Out() >> "Beam Start: " << " num: " << Number;
+
         }
         else if(BeamContext.Contains("continue"))
         {
           VoiceSpans[Number].z()["stop"] = SpanInfo;
           VoiceSpans[Number].Add()["start"] = SpanInfo;
           PartState["must-close-beam"] = true;
+            C::Out() >> "Beam Continue: " << " num: " << Number;
         }
         else
         {
           VoiceSpans[Number].z()["stop"] = SpanInfo;
           PartState["must-close-beam"] = false;
+            C::Out() >> "Beam Stop: " << " num: " << Number;
         }
       }
     }
@@ -1046,8 +1101,11 @@ Value MusicXMLParseNote(const Value& Element, Value& PartState)
     Value& VoiceSpans = PartState["spans"]["beam"][NoteInfo["voice"]];
     VoiceSpans[Number].z()["stop"] = SpanInfo;
     PartState["must-close-beam"] = false;
+
+      C::Out() >> "must close beam";
   }
 
+    /*
   if(not AlreadySawTuplet and not IsChordNote and
      PartState["must-close-tuplet"].AsBoolean())
   {
@@ -1061,7 +1119,9 @@ Value MusicXMLParseNote(const Value& Element, Value& PartState)
     Value& VoiceSpans = PartState["spans"]["tuplet"][NoteInfo["voice"]];
     VoiceSpans[Number].z()["stop"] = SpanInfo;
     PartState["must-close-tuplet"] = false;
+      C::Out() >> "must close tuplet";
   }
+ */
 
   NoteInfo["notated-dots"] = DotCount;
   NoteInfo["notated-type"] =

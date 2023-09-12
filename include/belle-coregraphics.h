@@ -41,9 +41,14 @@ namespace BELLE_NAMESPACE
   {
     public:
 
-    class Properties : public Painter::Properties
+    struct Properties : public Painter::Properties
     {
       CGContextRef RawViewDrawingContext;
+
+      count IndexOfCanvas = 0;
+      Inches PageDimensions;
+      BoxInt PageVisibility;
+      BoxInt PageArea;
 
       public:
 
@@ -73,7 +78,7 @@ namespace BELLE_NAMESPACE
 
     public:
 
-    ///Constructor initializes the JUCE renderer.
+    ///Constructor initializes the CoreGraphics renderer.
     CoreGraphics() : CGProperties(0), CachedPortfolio(0) {}
 
     ///Virtual destructor
@@ -96,14 +101,14 @@ namespace BELLE_NAMESPACE
       //Save the state.
       CGContextSaveGState(CGProperties->GetRawViewDrawingContext());
 
-      //Show only the first canvas
+      //Show only the specified canvas
       if(CachedPortfolio->Canvases.n())
       {
         //Set the current page number.
-        SetPageNumber(0);
+        SetPageNumber(CGProperties->IndexOfCanvas);
 
         //Paint the current canvas.
-        CachedPortfolio->Canvases.a()->Paint(*this, *CachedPortfolio);
+        CachedPortfolio->Canvases[CGProperties->IndexOfCanvas]->Paint(*this, *CachedPortfolio);
 
         //Reset the page number to indicate painting is finished.
         ResetPageNumber();
@@ -124,9 +129,27 @@ namespace BELLE_NAMESPACE
     {
       Transform(a);
       Affine A = CurrentSpace();
+
       if(A.IsInvertible())
       {
         CGContextRef Context = CGProperties->GetRawViewDrawingContext();
+        //Transform to bottom-left origin space.
+
+        CGContextSaveGState(Context);
+
+        Vector PageDimensions = CGProperties->PageDimensions;
+        number ScaleToFitPage =
+        (number)CGProperties->PageArea.Width() / PageDimensions.x;
+
+        CGContextTranslateCTM(Context, 0.0, (CGFloat) CGProperties->PageArea.Height());
+
+
+        CGContextScaleCTM(Context, ScaleToFitPage, -ScaleToFitPage);
+
+        CGContextTranslateCTM(Context,
+                              (CGFloat)CGProperties->PageArea.a.x,
+                              (CGFloat)CGProperties->PageArea.Height() - (CGFloat)CGProperties->PageArea.b.y);
+
 
         CGContextBeginPath(Context);
         for(count j = 0; j < p.n(); j++)
@@ -173,6 +196,9 @@ namespace BELLE_NAMESPACE
           CGContextDrawPath(Context, kCGPathStroke);
         else if(Fill and Stroke)
           CGContextDrawPath(Context, kCGPathFillStroke);
+
+
+        CGContextRestoreGState(Context);
       }
       else
       {
