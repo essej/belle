@@ -76,9 +76,9 @@ $(FONTS_DIR)/otf:
 	$(call DOWNLOAD,                                                        \
 	  $(GOOGLE_FONT)/ofl/merriweather/Merriweather-BoldItalic.ttf?raw=true, \
 	  $(FONTS_DIR)/downloaded/font-text-bold-italic.otf)
-	$(call DOWNLOAD,http://www.smufl.org/files/bravura-1.204.zip,           \
+	$(call DOWNLOAD,https://github.com/steinbergmedia/bravura/archive/refs/tags/bravura-1.380.zip,           \
 	  $(FONTS_DIR)/downloaded/bravura.zip)
-	cd $(FONTS_DIR)/downloaded; unzip -o -j bravura.zip otf/Bravura.otf
+	cd $(FONTS_DIR)/downloaded; unzip -o -j bravura.zip  bravura-bravura-1.380/redist/otf/Bravura.otf
 	cd $(FONTS_DIR)/downloaded; rm bravura.zip
 	cd $(FONTS_DIR)/downloaded; mv Bravura.otf font-notation.otf
 	mv $(FONTS_DIR)/downloaded $(FONTS_DIR)/otf
